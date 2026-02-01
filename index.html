@@ -7,12 +7,9 @@ import {
   TrendingUp, 
   Brain, 
   PenTool, 
-  ChevronDown, 
   Calculator, 
-  MessageSquare,
   Lightbulb,
   Shield,
-  BarChart,
   Heart,
   ArrowDown,
   Menu,
@@ -21,32 +18,23 @@ import {
   Layout,
   RefreshCw,
   Briefcase,
-  AlertTriangle,
   Battery,
   BookOpen,
-  Mic,
-  Mail,
   Bot,
   FileText,
-  Presentation,
   Frown,
   Award,
   Flag,
   Handshake, 
   CheckCircle,
-  TrendingDown,
   Quote,
   Coins,      
   HelpCircle, 
   Calendar,   
-  MapPin,     
   Globe,
   Zap,        
-  Layers,
-  Megaphone,
   Settings,
   Star,
-  Compass,
   Shuffle,
   Activity,
   List,
@@ -69,6 +57,38 @@ import {
   Type,
   ExternalLink 
 } from 'lucide-react';
+
+// -----------------------------------------------------------------------------
+// 0. CONFIGURATION & UTILS
+// -----------------------------------------------------------------------------
+
+// API Key Centralized Definition
+const API_KEY = "AIzaSyAXtZzTkxP0x2LvrZQgxSqcnu_QtZeP5II";
+
+// Helper function to call Gemini API
+const callGeminiAPI = async (userMessage, systemPrompt) => {
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: userMessage }] }],
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          tools: [{ google_search: {} }]
+        })
+      }
+    );
+
+    if (!response.ok) throw new Error('Network error');
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "عذراً، لم أستطع المعالجة حالياً.";
+  } catch (error) {
+    console.error("AI Service Error:", error);
+    return "عذراً، حدث خطأ في الاتصال بخدمة الذكاء الاصطناعي. يرجى التحقق من الإنترنت.";
+  }
+};
 
 // -----------------------------------------------------------------------------
 // 1. BASE COMPONENTS
@@ -127,8 +147,6 @@ const SmartAIAdvisor = () => {
     const [copiedIndex, setCopiedIndex] = useState(null);
     const chatEndRef = useRef(null);
 
-    const apiKey = ""; 
-
     const tools = [
         { id: 1, name: "مستكشف الفرص", icon: <Globe size={24} className="text-blue-400"/>, desc: "هل تبحث عن 'مساحة بيضاء' أو فرصة غير مستغلة؟", prompt: "أنت مستشار ابتكار استراتيجي. مهمتك هي تحليل المدخلات للبحث عن 'المساحات البيضاء' والفرص غير المستغلة في السوق. قدم أفكاراً مبتكرة وغير تقليدية." },
         { id: 2, name: "محلل توقيت السوق", icon: <Calendar size={24} className="text-purple-400"/>, desc: "هل الآن هو الوقت المناسب لإطلاق مشروعك؟", prompt: "أنت خبير في تحليل توقيت الأسواق (Market Timing). قم بتحليل الفكرة بناءً على نضج التكنولوجيا، سلوك المستهلك الحالي، والمنافسة. هل الوقت مناسب الآن؟ ولماذا؟" },
@@ -173,41 +191,19 @@ const SmartAIAdvisor = () => {
         setInput("");
         setLoading(true);
 
-        try {
-            const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: userMsg }] }],
-                        systemInstruction: {
-                            parts: [{ text: `
-                                ${selectedTool.prompt}
-                                
-                                تعليمات التنسيق الصارمة:
-                                1. استخدم العناوين الرئيسية والفرعية (Bold).
-                                2. استخدم القوائم النقطية (Bullet Points) لتبسيط المعلومات.
-                                3. اجعل الإجابة مركزة ومباشرة وعملية.
-                                4. استخدم البحث عبر الإنترنت لتقديم أمثلة واقعية وحديثة إن لزم الأمر.
-                            ` }]
-                        },
-                        tools: [{ google_search: {} }]
-                    })
-                }
-            );
-
-            if (!response.ok) throw new Error('Network error');
-            const data = await response.json();
-            const botResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "عذراً، لم أستطع المعالجة.";
+        const systemPrompt = `
+            ${selectedTool.prompt}
             
-            setMessages(prev => [...prev, { role: 'model', text: botResponse }]);
+            تعليمات التنسيق الصارمة:
+            1. استخدم العناوين الرئيسية والفرعية (Bold).
+            2. استخدم القوائم النقطية (Bullet Points) لتبسيط المعلومات.
+            3. اجعل الإجابة مركزة ومباشرة وعملية.
+            4. استخدم البحث عبر الإنترنت لتقديم أمثلة واقعية وحديثة إن لزم الأمر.
+        `;
 
-        } catch (error) {
-            setMessages(prev => [...prev, { role: 'model', text: "حدث خطأ في الاتصال، يرجى المحاولة مرة أخرى." }]);
-        } finally {
-            setLoading(false);
-        }
+        const botResponse = await callGeminiAPI(userMsg, systemPrompt);
+        setLoading(false);
+        setMessages(prev => [...prev, { role: 'model', text: botResponse }]);
     };
 
     return (
@@ -337,8 +333,6 @@ const ChapterChatBot = ({ chapterTitle, contentData }) => {
   const [copiedIndex, setCopiedIndex] = useState(null);
   const chatEndRef = useRef(null);
   
-  const apiKey = ""; 
-
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -370,51 +364,25 @@ const ChapterChatBot = ({ chapterTitle, contentData }) => {
     setInputValue("");
     setIsTyping(true);
 
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: userMessage }] }],
-            systemInstruction: {
-              parts: [{ text: `
-                أنت مساعد ذكي ومستشار لرائد أعمال. الموضوع الحالي هو: "${chapterTitle}".
-                بيانات السياق لهذا الفصل: "${contentData}".
-                
-                التعليمات الصارمة للإجابة:
-                1. استخدم بحث Google لتقديم معلومات دقيقة وحديثة، مع دمجها بسياق الفصل.
-                2. التنسيق (مهم جداً):
-                   - لا تكتب فقرات طويلة متصلة.
-                   - استخدم العناوين الرئيسية والفرعية لتنظيم الإجابة.
-                   - استخدم القوائم النقطية (Bullet points) لتعداد المعلومات.
-                   - اترك مسافات بين الفقرات لسهولة القراءة.
-                3. كن مهنياً، مشجعاً، ومباشراً.
-                4. افهم القصد من السؤال حتى لو كانت الصياغة ركيكة أو عامية.
-                5. قدم خطوات عملية ونصائح قابلة للتطبيق.
-              ` }]
-            },
-            tools: [{ google_search: {} }] 
-          })
-        }
-      );
+    const systemPrompt = `
+        أنت مساعد ذكي ومستشار لرائد أعمال. الموضوع الحالي هو: "${chapterTitle}".
+        بيانات السياق لهذا الفصل: "${contentData}".
+        
+        التعليمات الصارمة للإجابة:
+        1. استخدم بحث Google لتقديم معلومات دقيقة وحديثة، مع دمجها بسياق الفصل.
+        2. التنسيق (مهم جداً):
+            - لا تكتب فقرات طويلة متصلة.
+            - استخدم العناوين الرئيسية والفرعية لتنظيم الإجابة.
+            - استخدم القوائم النقطية (Bullet points) لتعداد المعلومات.
+            - اترك مسافات بين الفقرات لسهولة القراءة.
+        3. كن مهنياً، مشجعاً، ومباشراً.
+        4. افهم القصد من السؤال حتى لو كانت الصياغة ركيكة أو عامية.
+        5. قدم خطوات عملية ونصائح قابلة للتطبيق.
+    `;
 
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-
-      const data = await response.json();
-      const botResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "عذراً، لم أستطع العثور على إجابة مناسبة حالياً.";
-      
-      setMessages(prev => [...prev, { type: 'bot', text: botResponse }]);
-
-    } catch (error) {
-      console.error("AI Error:", error);
-      setMessages(prev => [...prev, { type: 'bot', text: "عذراً، خدمة الذكاء الاصطناعي غير متاحة حالياً للاتصال بالإنترنت." }]);
-    } finally {
-      setIsTyping(false);
-    }
+    const botResponse = await callGeminiAPI(userMessage, systemPrompt);
+    setIsTyping(false);
+    setMessages(prev => [...prev, { type: 'bot', text: botResponse }]);
   };
 
   return (
@@ -495,8 +463,6 @@ const IntroTools = () => {
   const [clinicResult, setClinicResult] = useState("");
   const [isDiagnosing, setIsDiagnosing] = useState(false);
 
-  const apiKey = ""; 
-
   const handleToolAction = async (input, setOutput, setLoading, promptType) => {
     if (!input.trim()) return;
     setLoading(true);
@@ -509,28 +475,9 @@ const IntroTools = () => {
       systemPrompt = `أنت مستشار أعمال ذكي. قم بوضع خارطة طريق مختصرة من 5 خطوات عملية للبدء في هذا المجال.`;
     }
 
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: input }] }],
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            tools: [{ google_search: {} }] 
-          })
-        }
-      );
-      if (!response.ok) throw new Error('Network error');
-      const data = await response.json();
-      setOutput(data.candidates?.[0]?.content?.parts?.[0]?.text || "عذراً، لم أتمكن من المعالجة حالياً.");
-    } catch (error) {
-      console.error(error);
-      setOutput("عذراً، حدث خطأ في الاتصال بالمستشار الذكي.");
-    } finally {
-      setLoading(false);
-    }
+    const result = await callGeminiAPI(input, systemPrompt);
+    setLoading(false);
+    setOutput(result);
   };
 
   return (
@@ -872,10 +819,6 @@ const Phase1Content = () => {
 };
 
 const Phase2Content = () => {
-  const [ideaInput, setIdeaInput] = useState("");
-  const [refinedIdea, setRefinedIdea] = useState(null);
-  const handleRefine = () => { if(!ideaInput) return; setRefinedIdea({ problem: "بناءً على المعطيات، يبدو أن السوق يفتقر إلى حلول سريعة لهذه المشكلة.", solution: ideaInput, value: "توفير تجربة مستخدم سلسة وتقليل التكاليف التشغيلية." }); };
-  
   const chapterData = `
     الفرق بين الشركة الناشئة والصغيرة.
     تحديد المشكلة: اخرج من المبنى وتحدث للعملاء.
